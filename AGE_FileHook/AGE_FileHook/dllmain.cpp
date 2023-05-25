@@ -8,6 +8,7 @@
 static DWORD g_dwExeBase = (DWORD)GetModuleHandleW(NULL);
 static pCreateFileA sg_fnCreateFileA = CreateFileA;
 static pLoadLibraryA sg_fnLoadLibraryA = LoadLibraryA;
+static pSHGetFolderPathA sg_fnSHGetFolderPathA = nullptr;
 static const char* sg_cpFolder = "AGE_CN_FileHook\\";
 
 HANDLE WINAPI CreateFileA_NEW(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)
@@ -25,11 +26,33 @@ HMODULE WINAPI LoadLibraryA_NEW(LPCSTR lpLibFileName)
 	return sg_fnLoadLibraryA(lpLibFileName);
 }
 
+HRESULT WINAPI SHGetFolderPathA_New(HWND hwnd, int csidl, HANDLE hToken, DWORD dwFlags, LPSTR pszPath)
+{
+	HRESULT h_result_r = sg_fnSHGetFolderPathA(hwnd, csidl, hToken, dwFlags, pszPath);
+	if ((hwnd == 0) && (csidl == 0x801C) && (hToken == 0) && (dwFlags == 0) && (pszPath != nullptr))
+	{
+		GetCurrentDirectoryA(256, pszPath);
+	}
+	return h_result_r;
+}
+
 VOID StartHook()
 {
+	HMODULE moudle_shell32 = LoadLibraryA("Shell32.dll");
+	if (moudle_shell32) 
+	{ 
+		sg_fnSHGetFolderPathA = (pSHGetFolderPathA)GetProcAddress(moudle_shell32, "SHGetFolderPathA");
+	}
+	else
+	{
+		MessageBoxA(NULL, "Load Shell32.dll Error!", NULL, NULL);
+	}
+
+	//Rut::ConsoleX::SetConsole(L"");
 	Rut::HookX::HookTitleExA("杺摫岻妅 乣埮偺寧彈恄偼摫崙偱塺偆乣", "魔导巧壳 汉化版 V3 程序修正");
 	Rut::HookX::DetourAttachFunc(&sg_fnCreateFileA, CreateFileA_NEW);
 	Rut::HookX::DetourAttachFunc(&sg_fnLoadLibraryA, LoadLibraryA_NEW);
+	Rut::HookX::DetourAttachFunc(&sg_fnSHGetFolderPathA, SHGetFolderPathA_New);
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
